@@ -1,0 +1,49 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+---
+title: "Assignment1_RohiithRavuri_FML"
+output: html_document
+date: "2024-02-04"
+
+```{r}
+library(readxl)
+Automobile <- read_excel("~/Desktop/Automobile.xls")
+
+View(Automobile)                                                          
+
+my_data <- read_excel("~/Desktop/Automobile.xls")
+
+# Descriptive Statistics for Quantitative Variables
+summary(my_data$mpg)
+summary(my_data$cylinders)
+summary(my_data$displacement)
+summary(my_data$horsepower)
+summary(my_data$weight)
+summary(my_data$acceleration)
+summary(my_data$model_year)
+
+# Descriptive Statistics for Categorical Variables
+
+table(my_data$name)
+table(my_data$origin)
+
+my_data$weight <- log(my_data$weight)
+
+# Plotting a quantitative variable
+hist(my_data$mpg, main = "Histogram of mpg", xlab = "mpg")
+
+# Scatterplot
+plot(my_data$mpg, my_data$horsepower, main = "Scatterplot of mpg vs Horsepower", xlab ="mpg", ylab = "Horsepower")
+
+
+
+
+```
+                                 
+
+
+
+
