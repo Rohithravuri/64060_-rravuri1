@@ -1,0 +1,219 @@
+---
+title: "Assignment_2_FML_rravuri1"
+output: html_document
+date: "2024-02-25"
+---
+
+## Imported data from the Universal Bank data set into the Function environment:
+
+```{r}
+library(readxl)
+RRbank1 <- read.csv("/Users/home/Desktop/Rdata/FML/Assignment 2/UniversalBank.csv")
+summary(RRbank1)
+```
+
+## Checked the data if the data set has any null values :
+
+```{r}
+any(is.na(RRbank1))
+```
+# Preparing the data set according to the requirements as per given in the problem statement with attaching package:
+
+```{r}
+library(dplyr)
+RRbank1_New <- select(RRbank1,-ID,-ZIP.Code)# Selecting the required variables
+class(RRbank1_New$Education) = "character" # Converting the class of Education to character as it is in numeric form
+class(RRbank1_New$Education)
+
+```
+ #Installing package "Caret"
+```{r}
+library(caret)
+```
+#Print the dummy Variables for the categorical variables where the levels are more than two
+
+```{r}
+dummypaper1 <- dummyVars(~Education,data=RRbank1_New) # Print the model using dummyPaper1 in Caret package
+educationDummy <- predict(dummypaper1,RRbank1_New) # applied it to the data set
+head(educationDummy)
+```
+
+Add the dummy variables for education to the initial data set and eliminate the Education numeric variable:
+
+## Add the dummy variables for education to the initial data set and eliminate the Education numeric variable:
+```{r}
+RRbank1_New <- select(RRbank1_New,-Education)
+RRbank1_New_dummy <- cbind(RRbank1_New[,-13],educationDummy)
+head(RRbank1_New_dummy)
+```
+
+```{r}
+RRbank1_New_dummy <- RRbank1_New_dummy %>% select(Personal.Loan, everything())
+RRbank1_New_dummy$Personal.Loan = as.factor(RRbank1_New_dummy$Personal.Loan)
+head(RRbank1_New_dummy)
+```
+#Spliting the data - we set seed to stick on a particular data. 
+
+```{r}
+set.seed(46)
+Trn1_Index = createDataPartition(RRbank1_New_dummy$Personal.Loan,p=0.60, list=FALSE)
+Trn_Dt = RRbank1_New_dummy[Trn1_Index,]
+Valid_Dt = RRbank1_New_dummy[-Trn1_Index,] 
+Tst1_Dt <- data.frame(Age=40,Experience=10,Income=84,Family=2,CCAvg=2,Mortgage=0,SecuritiesAccount=0,CDAccount=0,Online=1,CreditCard=1,Education1=0,Education2=1,Education3=0)
+
+summary(Trn_Dt)
+summary(Valid_Dt)
+summary(Tst1_Dt)
+```
+Data sets must be standardized before the model processing can begin.
+
+```{r}
+colnames(RRbank1_New_dummy) # Fetching the column names in the data set
+
+norm_var <- c("Age","Experience","Income","Family","CCAvg","Mortgage") # Obtain every numerical variable.
+trn_lbl <- Trn_Dt[,norm_var] 
+valid_lbls <- Valid_Dt[,norm_var] 
+tst_normal <- Tst1_Dt[,norm_var] 
+normalize_data <- preProcess(Trn_Dt[,norm_var], method=c("center", "scale"))
+trn_lbl <- predict(normalize_data,Trn_Dt)
+valid_lbls <- predict(normalize_data, Valid_Dt)
+tst_normal <- predict(normalize_data, tst_normal)
+# Verifying the Valu
+summary(trn_lbl)
+summary(valid_lbls)
+summary(tst_normal)
+set.seed(624)
+Exploregrid <- expand.grid(k=seq(1:30))
+act <- train(Personal.Loan~.,data=trn_lbl,method="knn",tuneGrid=Exploregrid)
+act
+```
+
+```{r}
+Finek <- act$bestTune[[1]] # saves the Finek
+Finek # Here the Finek
+```
+
+# Model 2: the class package’s use of the knn function
+```{r}
+library(class)
+Trn_forecaster <- select(trn_lbl,-Personal.Loan)
+Test_forecaster <- cbind(tst_normal,Tst1_Dt[,7:13])
+Valid_forecaster <- select(valid_lbls,-Personal.Loan)
+trn_lbl <- trn_lbl[,1]
+valid_lbls <- valid_lbls[,1]
+forecaster_valid_lbls <- knn(Trn_forecaster,Valid_forecaster,cl = trn_lbl,k=1)
+head(forecaster_valid_lbls)
+```
+```{r}
+forecaster_Tst_Lbls <- knn(Trn_forecaster,Test_forecaster,cl = trn_lbl,k=1)
+head(forecaster_Tst_Lbls)
+```
+
+Answer 1: The model predicted that the customer would not apply for a personal loan based on the test data that was provided.
+
+```{r}
+library(caret)
+accurate.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
+# computuing the Knn
+for(i in 1:14) {
+  knn.pred <- knn(Trn_forecaster,Valid_forecaster,cl = trn_lbl,k=i)
+  accurate.df[i, 2] <- confusionMatrix(knn.pred, valid_lbls)$overall[1] 
+}
+accurate.df
+```
+Answer 2: The best k for this data set, based on the aforementioned finding, is 3, since it has the maximum accuracy (96.40%).
+
+```{r}
+#install.packages("gmodels")
+library(gmodels)
+forecaster_valid_lbls <- knn(Trn_forecaster,Valid_forecaster,cl = trn_lbl,k=3)
+head(forecaster_valid_lbls)
+```
+```{r}
+CrossTable(x = valid_lbls,y = forecaster_valid_lbls,prop.chisq = FALSE)
+```
+
+Answer 3: Using k=3, above result shows the confusion matrix of validation data set
+
+```{r}
+forecaster_Tst_Lbls <- knn(Trn_forecaster,Test_forecaster,cl = trn_lbl,k=3)
+head(forecaster_Tst_Lbls)
+
+```
+Answer 4:
+
+The model predicted that the customer would not apply for a personal loan based on the best k value, which was determined to be 3. 
+
+## Now, lets divide the data into three sets: train, validation, and test, with proportions of 50%, 30%, and 20%, respectively.
+
+```{r}
+#install.packages("splitTools")
+#install.packages("ranger")
+library("splitTools")
+library("ranger")
+```
+## Split data into partitions
+
+```{r}
+set.seed(5346)
+databrand <- partition(RRbank1_New_dummy$Age, p = c(train = 0.5, valid = 0.3, test = 0.2))
+str(data)
+trn_ub <- RRbank1_New_dummy[databrand$train, ]
+validnew_ub <- RRbank1_New_dummy[databrand$valid, ]
+tstnew_ub <- RRbank1_New_dummy[databrand$test, ]
+```
+
+## Normalize the data using train data set:
+
+```{r}
+#norm_var <- c("Age","Experience","Income","Family","CCAvg","Mortgage") # Get all the numeric Variables
+trn.norm.df <- trn_ub[,norm_var] # Filter the numeric variables in train data
+validnew.norm.df <- validnew_ub[,norm_var] # Filter the numeric variables in validation data
+tstnew.norm.df <- tstnew_ub[,norm_var] # Filter the numeric variables in test data
+normalnew_data.ub <- preProcess(trn_ub[,norm_var], method=c("center", "scale")) # Using preProcess find out the normalized values of numeric variables in train data and apply it to validation and test data
+trn.norm.df <- predict(normalnew_data.ub,trn_ub)
+validnew.norm.df <- predict(normalnew_data.ub, validnew_ub)
+tstnew.norm.df <- predict(normalnew_data.ub, tstnew_ub)
+# Verifying the normalized values
+summary(trn.norm.df)
+summary(validnew.norm.df)
+summary(tstnew.norm.df)
+Trn_forecaster_Ub <- select(trn.norm.df,-Personal.Loan)
+Valid_forecaster_Ub <- select(validnew.norm.df,-Personal.Loan)
+Test_forecaster_Ub <- select(tstnew.norm.df,-Personal.Loan)
+Train_Labels_Ub <- trn.norm.df[,1]
+valid_lbls_Ub <- validnew.norm.df[,1]
+Test_Labels_Ub <- tstnew.norm.df[,1]
+forecaster_Trn_Lbls_Ub <- knn(Trn_forecaster_Ub,Trn_forecaster_Ub,cl = Train_Labels_Ub,k=3)
+head(forecaster_Trn_Lbls_Ub)
+
+
+```
+
+```{r}
+forecaster_valid_lbls_Ub <- knn(Trn_forecaster_Ub,Valid_forecaster_Ub,cl = Train_Labels_Ub,k=3)
+forecaster_Tst_Lbls_Ub <- knn(Trn_forecaster_Ub,Test_forecaster_Ub,cl = Train_Labels_Ub,k=3)
+head(forecaster_Tst_Lbls_Ub)
+head(forecaster_valid_lbls_Ub)
+confusionMatrix(forecaster_Trn_Lbls_Ub,Train_Labels_Ub,positive = "1") #train Set
+confusionMatrix(forecaster_valid_lbls_Ub,valid_lbls_Ub,positive = "1") #Validation Set
+confusionMatrix(forecaster_Tst_Lbls_Ub,Test_Labels_Ub,positive = "1") #Test Set
+```
+Answer 5:
+
+As=observed from the above mentioned confusion matrices for the train, validation, and test data sets, the accuracy of the test data is 96.5%. There is a difference in accuracy between train data sets (98.08%) and validation (96.01%). The training data has a higher accuracy because the model was developed on it, but the validation and test data are used to determine the model’s true accuracy.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
